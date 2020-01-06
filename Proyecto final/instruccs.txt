@@ -1,0 +1,99 @@
+#include<msp430.h>
+long ADCDATA;//Variable that receives the information of ADC10MEM
+long TEMP;//Temporary variable
+int i;
+int pp[10];
+//MAIN PROGRAM
+void main(void)
+{
+    // Stop Watch Dog Timer
+    //WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
+    // set the P1.0 as output
+    P1DIR = BIT0+BIT6;
+    //settings UART
+    if (CALBC1_1MHZ==0xFF)                  // If calibration constant erased
+        {
+            while(1);                               // do not load, trap CPU!!
+        }
+    DCOCTL = 0;                               // Select lowest DCOx and MODx settings
+    BCSCTL1 = CALBC1_1MHZ;                    // Set DCO
+    DCOCTL = CALDCO_1MHZ;
+    P1SEL = BIT1 + BIT2 ;                     // P1.1 = RXD, P1.2=TXD
+    P1SEL2 = BIT1 + BIT2 ;                    // P1.1 = RXD, P1.2=TXD
+    UCA0CTL1 |= UCSSEL_2;                     // SMCLK
+    UCA0BR0 = 104;                            // 1MHz 9600
+    UCA0BR1 = 0;                              // 1MHz 9600
+    UCA0MCTL = UCBRS0;                        // Modulation UCBRSx = 1
+    UCA0CTL1 &= ~UCSWRST;                     // **Initialize USCI state machine**
+    // ADC initialization
+    ADC10CTL0 = SREF_0 + ADC10SHT_2 + ADC10ON;                          // Vcc reference, 16 clocks, on
+
+    ADC10CTL1 = INCH_4 + SHS_0 + ADC10DIV_0 + ADC10SSEL_0 + CONSEQ_0;   // input channel 0, trigger on ADC10SC bit, no clock division, internal ADC clock, single channel single conversion
+    ADC10AE0 = BIT4 + BIT5 + BIT6;                                                    // Entrada del ADC en P1.4
+    ADC10CTL0 &= ~ENC;                                                   // Se enciende
+
+
+   for (;;)
+       {
+
+       ADC10AE0 = BIT4;                                                    // Entrada del ADC en P1.4
+           ADC10CTL0 |= ENC;
+           ADC10CTL0 |= ADC10SC;             // conversion start
+           while (ADC10CTL1 & ADC10BUSY);          // check for ADC conversion is completed
+           ADCDATA = ADC10MEM;
+           if (ADCDATA>568){
+                           //pp=1;
+                     while (!(IFG2&UCA0TXIFG));                // USCI_A0 TX buffer ready?
+                                           UCA0TXBUF = '1';                    // TX -> RXed character
+           }
+           else{
+                //pp=0;
+            while (!(IFG2&UCA0TXIFG));                // USCI_A0 TX buffer ready?
+                               UCA0TXBUF = '0';                    // TX -> RXed character
+           }
+           ADC10CTL0 &= ~ENC;
+           ///////////////////////////
+           ADC10AE0 = BIT5;                                                    // Entrada del ADC en P1.4
+                      ADC10CTL0 |= ENC;
+                      ADC10CTL0 |= ADC10SC;             // conversion start
+                      while (ADC10CTL1 & ADC10BUSY);          // check for ADC conversion is completed
+                      ADCDATA = ADC10MEM;
+                      if (ADCDATA>43){//15°
+                                      //pp=1;
+                                //while (!(IFG2&UCA0TXIFG));                // USCI_A0 TX buffer ready?
+                                                    //  UCA0TXBUF = '1';                    // TX -> RXed character
+                          pp[0] = '0';
+                      }
+                      else{
+                           //pp=0;
+                       while (!(IFG2&UCA0TXIFG));                // USCI_A0 TX buffer ready?
+                                          UCA0TXBUF = '0';                    // TX -> RXed character
+                      }
+           ADC10CTL0 &= ~ENC;
+           ///////////////////////////////
+           ADC10AE0 = BIT6;                                                    // Entrada del ADC en P1.4
+                      ADC10CTL0 |= ENC;
+                      ADC10CTL0 |= ADC10SC;             // conversion start
+                      while (ADC10CTL1 & ADC10BUSY);          // check for ADC conversion is completed
+                      ADCDATA = ADC10MEM;
+                      if (ADCDATA>284){
+                                      //pp=1;
+                                while (!(IFG2&UCA0TXIFG));                // USCI_A0 TX buffer ready?
+                                                      UCA0TXBUF = '1';                    // TX -> RXed character
+                      }
+                      else{
+                           //pp=0;
+                       while (!(IFG2&UCA0TXIFG));                // USCI_A0 TX buffer ready?
+                                          UCA0TXBUF = '0';                    // TX -> RXed character
+                      }
+            ADC10CTL0 &= ~ENC;
+           //Impression of the values
+           for(i=0;i<11;i++)
+               {
+                   while (!(IFG2&UCA0TXIFG));                // USCI_A0 TX buffer ready?
+                   UCA0TXBUF = pp[i];                    // TX -> RXed character
+               }
+           _delay_cycles (1000000);
+       }
+}
+

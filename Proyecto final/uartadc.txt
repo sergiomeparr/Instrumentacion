@@ -1,0 +1,123 @@
+#include <msp430.h>
+int flag=0;
+long sensor1,sensor2,sensor3;
+char palabra[8] = "HOLA\n";
+
+
+void UART_TXchar2( unsigned char *c )
+   {
+   int i = 0;
+   for(i;i<20; i++){
+       if(c[i] == 0){
+           break;
+       }else{
+           while (!(IFG2&UCA0TXIFG));
+           UCA0TXBUF = c[i];
+       }
+   }
+
+
+
+}
+
+
+void main(void) {
+
+    WDTCTL = WDTPW + WDTHOLD;
+
+       BCSCTL1 = CALBC1_16MHZ;
+       DCOCTL = CALDCO_16MHZ;
+       BCSCTL2 &=~ SELS;
+
+
+    P1SEL = 0;
+    P1DIR |= BIT0 + BIT6;
+    P1OUT &= ~BIT0;
+    P1OUT &= ~BIT6;
+
+       P1SEL       |= (BIT1 + BIT2);
+       P1SEL2      |= (BIT1 + BIT2);
+       UCA0CTL1    |= UCSSEL_2;
+       UCA0CTL1    |= UCSWRST;
+
+
+       UCA0BR0 |= 1666;
+       UCA0BR1 = 1666>>8;
+       UCA0MCTL = 6<<1;
+       UCA0CTL1 &= ~UCSWRST;
+
+
+    while(1){
+
+
+        if(flag==0){
+                         ADC10CTL0 = SREF_0 + ADC10SHT_2 + ADC10ON;
+                         ADC10CTL1 = INCH_5 + SHS_0 + ADC10DIV_0 + ADC10SSEL_0 + CONSEQ_0;
+                         ADC10AE0 = BIT5;
+                         ADC10CTL0 |= ENC;
+
+                         __delay_cycles(100000);
+                         ADC10CTL0 |= ADC10SC;
+                         while( ADC10CTL1 & ADC10BUSY );
+                         sensor1 = ADC10MEM;
+                          if( sensor1  > 512 )
+                              P1OUT |= BIT0;
+                           else
+                              P1OUT &=~ BIT0;
+                          ADC10CTL0 &= ~ENC;
+
+
+            flag=1;
+        }
+        if (flag==1)
+        {
+                         ADC10CTL0 = SREF_0 + ADC10SHT_2 + ADC10ON;
+                         ADC10CTL1 = INCH_4 + SHS_0 + ADC10DIV_0 + ADC10SSEL_0 + CONSEQ_0;
+                         ADC10AE0 = BIT4;
+                         ADC10CTL0 |= ENC;
+                         __delay_cycles(100000);
+                         ADC10CTL0 |= ADC10SC;                       // Empieza conversión del ADC
+                         while( ADC10CTL1 & ADC10BUSY ); sensor2 = ADC10MEM;
+
+                          if( sensor2 > 512 )
+                           P1OUT |= BIT6;
+                           else
+                              P1OUT &=~ BIT6;
+                          ADC10CTL0 &= ~ENC;
+            flag=2;
+        }
+        if (flag==2)
+        {
+                         ADC10CTL0 = SREF_0 + ADC10SHT_2 + ADC10ON;
+                         ADC10CTL1 = INCH_3 + SHS_0 + ADC10DIV_0 + ADC10SSEL_0 + CONSEQ_0;
+                         ADC10AE0 = BIT3;
+                          ADC10CTL0 |= ENC;
+                         __delay_cycles(100000);
+                          ADC10CTL0 |= ADC10SC;
+                           while( ADC10CTL1 & ADC10BUSY );
+                         sensor3 = ADC10MEM;
+                          if( sensor3 > 512 )   {
+                              P1OUT |= BIT6;
+                              P1OUT |= BIT0;
+                          }
+                           else
+                           {
+                               P1OUT &=~ BIT6;
+                               P1OUT &=~ BIT0;
+
+                           }
+                          ADC10CTL0 &= ~ENC;
+            flag=0;
+        }
+
+        sensor1 = sensor1 ;
+        sensor2 = sensor2 ;
+        sensor3 = sensor3 ;
+
+        __delay_cycles(1000000);
+         UART_TXchar2(palabra);
+
+
+    }
+}
+
